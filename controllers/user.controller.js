@@ -13,6 +13,7 @@ const signupUser = asyncHandler(async (req, res) => {
     weight,
     height,
     activityLevel,
+    dailyCalorieTarget,
     goal,
   } = req.body;
 
@@ -34,6 +35,7 @@ const signupUser = asyncHandler(async (req, res) => {
     height,
     activityLevel,
     goal,
+    dailyCalorieTarget,
   });
 
   const token = await generateToken(user._id);
@@ -43,13 +45,19 @@ const signupUser = asyncHandler(async (req, res) => {
 const signinUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  const user = await User.findOne({ email }).select("-password");
+  // Select password explicitly for comparison
+  const user = await User.findOne({ email }).select("+password");
 
   if (!user) {
     return res.status(401).json({ message: "Invalid credentials" });
   }
 
-  if (await user.comparePassword(password)) {
+  // Compare password in controller using bcrypt
+  const isMatch = await bcrypt.compare(password, user.password);
+
+  if (isMatch) {
+    // Remove password from user object before sending response
+    user.password = undefined;
     const token = await generateToken(user._id);
     res.status(200).json({ message: "Login successful", user, token });
   } else {
