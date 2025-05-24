@@ -57,4 +57,18 @@ const signinUser = asyncHandler(async (req, res) => {
   }
 });
 
-export { signupUser, signinUser };
+const updateUserDetails = asyncHandler(async (req, res) => {
+  const { name, age, gender, weight, height, activityLevel, goal } = req.body;
+  const user = await User.findById(req.user._id);
+  user.name = name;
+  user.age = age;
+  user.gender = gender;
+  user.weight = weight;
+  user.height = height;
+  user.activityLevel = activityLevel;
+  user.goal = goal;
+  await user.save();
+  res.status(200).json({ message: "User details updated successfully", user });
+});
+
+export { signupUser, signinUser, updateUserDetails };
