@@ -13,18 +13,47 @@ const signupUser = asyncHandler(async (req, res) => {
     weight,
     height,
     activityLevel,
-    dailyCalorieTarget,
     goal,
   } = req.body;
 
+  // Check if user already exists
   const userExists = await User.findOne({ email });
   if (userExists) {
     return res.status(400).json({ message: "Email already exists" });
   }
 
+  // Calculate BMR (Mifflin-St Jeor Equation)
+  let bmr;
+  if (gender === "male") {
+    bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+  } else if (gender === "female") {
+    bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+  } else {
+    // For "other", use average of male and female
+    bmr = 10 * weight + 6.25 * height - 5 * age - 78;
+  }
+
+  // Activity factor
+  let activityFactor = 1.2;
+  if (activityLevel === "lightly active") activityFactor = 1.375;
+  else if (activityLevel === "moderately active") activityFactor = 1.55;
+  else if (activityLevel === "very active") activityFactor = 1.725;
+
+  let dailyCalorieTarget = Math.round(bmr * activityFactor);
+
+  // Adjust for goal
+  if (goal === "lose weight") dailyCalorieTarget -= 500;
+  else if (goal === "gain weight") dailyCalorieTarget += 500;
+  // For "maintain weight", no change
+
+  // Ensure calorie target is not negative
+  dailyCalorieTarget = Math.max(dailyCalorieTarget, 1200);
+
+  // Hash password
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
 
+  // Create user
   const user = await User.create({
     name,
     email,
