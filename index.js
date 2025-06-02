@@ -12,6 +12,7 @@ import mealRoutes from "./routes/meal.routes.js";
 import exerciseRoutes from "./routes/exercise.routes.js";
 import weightRoutes from "./routes/weight.routes.js";
 import summaryRoutes from "./routes/summary.routes.js";
+import dailySummaryRoutes from "./routes/dailySummary.routes.js";
 
 dotenv.config();
 
@@ -44,6 +45,7 @@ app.use("/api/v1/meals", mealRoutes);
 app.use("/api/v1/exercises", exerciseRoutes);
 app.use("/api/v1/weight", weightRoutes);
 app.use("/api/v1/summary", summaryRoutes);
+app.use("/api/v1/dailySummary", dailySummaryRoutes);
 
 connectDB().then(() => {
   app.listen(PORT, () => {
