@@ -23,7 +23,10 @@ const app = express();
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: [
+      process.env.CORS_ORIGIN, // local development
+      process.env.CORS_ORIGIN_PROD, // your deployed frontend
+    ],
     credentials: true,
   })
 );
