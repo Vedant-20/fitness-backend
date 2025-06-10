@@ -17,6 +17,7 @@ import dailySummaryRoutes from "./routes/dailySummary.routes.js";
 import exerciseLogRoutes from "./routes/exerciseLog.routes.js";
 
 dotenv.config();
+job.start(); // Start the cron job
 
 const app = express();
 
