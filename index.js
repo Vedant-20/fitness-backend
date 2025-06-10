@@ -5,6 +5,7 @@ import { v2 as cloudinary } from "cloudinary";
 
 import connectDB from "./db/db.js";
 import cors from "cors";
+import job from "./cron/cron.js";
 
 import userRoutes from "./routes/user.routes.js";
 import foodRoutes from "./routes/food.routes.js";
@@ -13,6 +14,7 @@ import exerciseRoutes from "./routes/exercise.routes.js";
 import weightRoutes from "./routes/weight.routes.js";
 import summaryRoutes from "./routes/summary.routes.js";
 import dailySummaryRoutes from "./routes/dailySummary.routes.js";
+import exerciseLogRoutes from "./routes/exerciseLog.routes.js";
 
 dotenv.config();
 
@@ -25,8 +27,8 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: "16kb" }));
-app.use(express.urlencoded({ extended: true, limit: "16kb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
@@ -46,6 +48,7 @@ app.use("/api/v1/exercises", exerciseRoutes);
 app.use("/api/v1/weight", weightRoutes);
 app.use("/api/v1/summary", summaryRoutes);
 app.use("/api/v1/dailySummary", dailySummaryRoutes);
+app.use("/api/v1/exerciseLogs", exerciseLogRoutes);
 
 connectDB().then(() => {
   app.listen(PORT, () => {

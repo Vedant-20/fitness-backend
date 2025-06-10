@@ -1,22 +1,21 @@
 import { Router } from "express";
 import {
-  createWeightEntry,
-  getWeightHistory,
+  addWeightEntry,
+  getAllWeightEntries,
   getWeightEntryById,
   updateWeightEntry,
   deleteWeightEntry,
-  getWeightStats,
-} from "../controllers/weight.controller.js";
+} from "../controllers/weightTracker.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
 router.use(verifyJWT); // All weight routes require authentication
 
-router.route("/").post(createWeightEntry).get(getWeightHistory);
+// Add a new weight entry or get all weight entries
+router.route("/").post(addWeightEntry).get(getAllWeightEntries);
 
-router.route("/stats").get(getWeightStats);
-
+// Get, update, or delete a single weight entry by ID
 router
   .route("/:id")
   .get(getWeightEntryById)

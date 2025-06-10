@@ -1,49 +1,77 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import WeightTracker from "../models/weightTracker.model.js";
-import User from "../models/user.model.js";
 
-const enterWeight = asyncHandler(async (req, res) => {
+// Create or add a new weight entry
+const addWeightEntry = asyncHandler(async (req, res) => {
   const userId = req.user._id;
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
+  const { weight } = req.body;
+  const date = req.body.date ? new Date(req.body.date) : new Date();
 
-  const existingWeightEntry = await WeightTracker.findOne({
-    userId,
-    date: {
-      $gte: new Date(currentYear, currentMonth, 1),
-      $lte: new Date(currentYear, currentMonth + 1, 0),
-    },
-  });
-
-  if (existingWeightEntry) {
-    return res
-      .status(400)
-      .json({ message: "You have already entered your weight for this month" });
+  if (!weight) {
+    return res.status(400).json({ message: "Weight is required" });
   }
 
-  const weight = req.body.weight;
-  const weightTracker = new WeightTracker({ userId, weight, date: new Date() });
-  await weightTracker.save();
-
-  res.status(201).json({ message: "Weight entered successfully" });
-});
-
-const getWeightEntryStatus = asyncHandler(async (req, res) => {
-  const userId = req.user._id;
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-
-  const existingWeightEntry = await WeightTracker.findOne({
+  const weightEntry = await WeightTracker.create({
     userId,
-    date: {
-      $gte: new Date(currentYear, currentMonth, 1),
-      $lte: new Date(currentYear, currentMonth + 1, 0),
-    },
+    date,
+    weight,
   });
 
-  if (existingWeightEntry) {
-    return res.status(200).json({ weightEntered: true });
+  res.status(201).json({ message: "Weight entry added", data: weightEntry });
+});
+
+// Get all weight entries for the user
+const getAllWeightEntries = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const entries = await WeightTracker.find({ userId }).sort({ date: -1 });
+  res.status(200).json({ data: entries });
+});
+
+// Get a single weight entry by ID
+const getWeightEntryById = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const { id } = req.params;
+  const entry = await WeightTracker.findOne({ _id: id, userId });
+  if (!entry) {
+    return res.status(404).json({ message: "Weight entry not found" });
+  }
+  res.status(200).json({ data: entry });
+});
+
+// Update a weight entry by ID
+const updateWeightEntry = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const { id } = req.params;
+  const { weight, date } = req.body;
+
+  const entry = await WeightTracker.findOneAndUpdate(
+    { _id: id, userId },
+    { weight, date: date ? new Date(date) : undefined },
+    { new: true, runValidators: true }
+  );
+
+  if (!entry) {
+    return res.status(404).json({ message: "Weight entry not found" });
   }
 
-  return res.status(400).json({ weightEntered: false });
+  res.status(200).json({ message: "Weight entry updated", data: entry });
 });
+
+// Delete a weight entry by ID
+const deleteWeightEntry = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const { id } = req.params;
+  const entry = await WeightTracker.findOneAndDelete({ _id: id, userId });
+  if (!entry) {
+    return res.status(404).json({ message: "Weight entry not found" });
+  }
+  res.status(200).json({ message: "Weight entry deleted" });
+});
+
+export {
+  addWeightEntry,
+  getAllWeightEntries,
+  getWeightEntryById,
+  updateWeightEntry,
+  deleteWeightEntry,
+};

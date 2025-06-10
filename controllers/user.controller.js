@@ -108,4 +108,28 @@ const updateUserDetails = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "User details updated successfully", user });
 });
 
-export { signupUser, signinUser, updateUserDetails };
+const getUserProfile = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select("-password");
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  res
+    .status(200)
+    .json({ message: "User profile retrieved successfully", user });
+});
+
+const HealthCheck = async (req, res) => {
+  try {
+    res.status(200).json({ message: "Health Tested" });
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+export {
+  signupUser,
+  signinUser,
+  updateUserDetails,
+  getUserProfile,
+  HealthCheck,
+};

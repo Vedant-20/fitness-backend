@@ -10,7 +10,11 @@ const ExerciseLogSchema = new mongoose.Schema(
     date: { type: Date, required: true },
     exercises: [
       {
-        name: { type: String, required: true }, // e.g., "Running"
+        exerciseId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Exercise",
+          required: true,
+        }, // e.g., "Running"
         duration: { type: Number, required: true }, // in minutes
         caloriesBurned: { type: Number, required: true }, // Total calories burned
       },

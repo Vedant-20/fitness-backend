@@ -1,180 +1,84 @@
-import ExerciseLog from "../models/exerciseLog.model.js";
-import DailySummary from "../models/dailySummary.model.js";
-import { ApiError } from "../utils/ApiError.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
+import Exercise from "../models/exercise.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { v2 as cloudinary } from "cloudinary";
 
-// Create a new exercise log
-const createExerciseLog = asyncHandler(async (req, res) => {
-  const { date, exercises } = req.body;
-  const userId = req.user._id;
-
-  // Calculate total calories burned
-  const totalCaloriesBurned = exercises.reduce(
-    (sum, exercise) => sum + exercise.caloriesBurned,
-    0
-  );
-
-  const exerciseLog = await ExerciseLog.create({
-    userId,
-    date,
-    exercises,
-    totalCaloriesBurned,
-  });
-
-  // Update daily summary
-  await updateDailySummary(userId, date);
-
-  return res
-    .status(201)
-    .json(
-      new ApiResponse(201, exerciseLog, "Exercise log created successfully")
-    );
-});
-
-// Get all exercise logs for a user
-const getExerciseLogs = asyncHandler(async (req, res) => {
-  const userId = req.user._id;
-  const exerciseLogs = await ExerciseLog.find({ userId });
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(200, exerciseLogs, "Exercise logs retrieved successfully")
-    );
-});
-
-// Get exercise logs by date
-const getExerciseLogsByDate = asyncHandler(async (req, res) => {
-  const userId = req.user._id;
-  const { date } = req.params;
-
-  const exerciseLogs = await ExerciseLog.find({
-    userId,
-    date: new Date(date),
-  });
-
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(200, exerciseLogs, "Exercise logs retrieved successfully")
-    );
-});
-
-// Get exercise log by ID
-const getExerciseLogById = asyncHandler(async (req, res) => {
-  const userId = req.user._id;
-  const exerciseLog = await ExerciseLog.findOne({
-    _id: req.params.id,
-    userId,
-  });
-
-  if (!exerciseLog) {
-    throw new ApiError(404, "Exercise log not found");
+// Create Exercise
+const createExercise = asyncHandler(async (req, res) => {
+  const { name, duration, caloriesBurned } = req.body;
+  let { exercisePicture } = req.body;
+  if (!name || !caloriesBurned) {
+    return res
+      .status(400)
+      .json({ message: "Name and calories burned are required" });
   }
-
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(200, exerciseLog, "Exercise log retrieved successfully")
-    );
-});
-
-// Update exercise log
-const updateExerciseLog = asyncHandler(async (req, res) => {
-  const userId = req.user._id;
-  const { date, exercises } = req.body;
-
-  // Calculate new total calories burned
-  const totalCaloriesBurned = exercises.reduce(
-    (sum, exercise) => sum + exercise.caloriesBurned,
-    0
-  );
-
-  const exerciseLog = await ExerciseLog.findOneAndUpdate(
-    { _id: req.params.id, userId },
-    {
-      date,
-      exercises,
-      totalCaloriesBurned,
-    },
-    { new: true }
-  );
-
-  if (!exerciseLog) {
-    throw new ApiError(404, "Exercise log not found");
+  if (exercisePicture) {
+    const uploadedResponse = await cloudinary.uploader.upload(exercisePicture);
+    exercisePicture = uploadedResponse.secure_url;
   }
-
-  // Update daily summary
-  await updateDailySummary(userId, date);
-
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(200, exerciseLog, "Exercise log updated successfully")
-    );
+  const exercise = await Exercise.create({
+    name,
+    duration,
+    caloriesBurned,
+    exercisePicture,
+  });
+  return res.status(201).json({ message: "Exercise created", data: exercise });
 });
 
-// Delete exercise log
-const deleteExerciseLog = asyncHandler(async (req, res) => {
-  const userId = req.user._id;
-  const exerciseLog = await ExerciseLog.findOneAndDelete({
-    _id: req.params.id,
-    userId,
-  });
+// Get All Exercises
+const getAllExercises = asyncHandler(async (req, res) => {
+  const exercises = await Exercise.find();
+  return res.status(200).json({ data: exercises });
+});
 
-  if (!exerciseLog) {
-    throw new ApiError(404, "Exercise log not found");
+// Get Single Exercise by ID
+const getExerciseById = asyncHandler(async (req, res) => {
+  const exercise = await Exercise.findById(req.params.id);
+  if (!exercise) {
+    return res.status(404).json({ message: "Exercise not found" });
   }
-
-  // Update daily summary
-  await updateDailySummary(userId, exerciseLog.date);
-
   return res
     .status(200)
-    .json(new ApiResponse(200, null, "Exercise log deleted successfully"));
+    .json({ data: exercise, message: "Exercise retrieved successfully" });
 });
 
-// Helper function to update daily summary
-const updateDailySummary = async (userId, date) => {
-  const exerciseLogs = await ExerciseLog.find({
-    userId,
-    date: new Date(date),
+// Update Exercise
+const updateExercise = asyncHandler(async (req, res) => {
+  const { name, duration, caloriesBurned } = req.body;
+  const exercise = await Exercise.findByIdAndUpdate(
+    req.params.id,
+    { name, duration, caloriesBurned },
+    { new: true, runValidators: true }
+  );
+  if (!exercise) {
+    return res.status(404).json({ message: "Exercise not found" });
+  }
+  return res.status(200).json({ message: "Exercise updated", data: exercise });
+});
+
+// Delete Exercise
+const deleteExercise = asyncHandler(async (req, res) => {
+  const exercise = await Exercise.findByIdAndDelete(req.params.id);
+  if (!exercise) {
+    return res.status(404).json({ message: "Exercise not found" });
+  }
+  return res.status(200).json({ message: "Exercise deleted" });
+});
+
+const searchExercisItems = asyncHandler(async (req, res) => {
+  const { query } = req.query;
+  const exerciseItems = await Exercise.find({
+    name: { $regex: query, $options: "i" },
   });
-
-  const totalCaloriesBurned = exerciseLogs.reduce(
-    (sum, log) => sum + log.totalCaloriesBurned,
-    0
-  );
-
-  // Get meal logs for the same date
-  const mealLogs = await MealLog.find({
-    userId,
-    date: new Date(date),
-  });
-
-  const totalCaloriesConsumed = mealLogs.reduce(
-    (sum, log) => sum + log.totalCalories,
-    0
-  );
-
-  const netCalories = totalCaloriesConsumed - totalCaloriesBurned;
-
-  await DailySummary.findOneAndUpdate(
-    { userId, date: new Date(date) },
-    {
-      caloriesConsumed: totalCaloriesConsumed,
-      caloriesBurned: totalCaloriesBurned,
-      netCalories,
-    },
-    { upsert: true, new: true }
-  );
-};
+  return res
+    .status(200)
+    .json({ data: exerciseItems, message: "Exercise items found" });
+});
 
 export {
-  createExerciseLog,
-  getExerciseLogs,
-  getExerciseLogById,
-  updateExerciseLog,
-  deleteExerciseLog,
-  getExerciseLogsByDate,
+  createExercise,
+  getAllExercises,
+  getExerciseById,
+  updateExercise,
+  deleteExercise,
+  searchExercisItems,
 };

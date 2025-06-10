@@ -72,7 +72,12 @@ const getDailySummaryStatus = asyncHandler(async (req, res) => {
     totalExerciseCaloriesBurned = 0;
   exerciseLogs.forEach((log) => {
     totalExercises += log.exercises.length;
-    totalExerciseCaloriesBurned += log.totalCaloriesBurned;
+    // Sum calories burned from each exercise in the log
+    if (Array.isArray(log.exercises)) {
+      log.exercises.forEach((ex) => {
+        totalExerciseCaloriesBurned += ex.caloriesBurned;
+      });
+    }
   });
 
   // 4. Respond with all details

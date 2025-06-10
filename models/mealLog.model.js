@@ -8,11 +8,7 @@ const MealLogSchema = new mongoose.Schema(
       required: true,
     },
     date: { type: Date, required: true },
-    mealType: {
-      type: String,
-      enum: ["breakfast", "lunch", "dinner", "snack"],
-      required: true,
-    },
+
     foods: [
       {
         foodItem: {

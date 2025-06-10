@@ -1,78 +1,143 @@
 import ExerciseLog from "../models/exerciseLog.model.js";
+import Exercise from "../models/exercise.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
-const createExerciseLog = asyncHandler(async (req, res) => {
-  const { exercise, totalCaloriesBurned } = req.body;
-  const exerciseLog = await ExerciseLog.create({
-    userId: req.user._id,
-    date: new Date(),
+// Helper to get today's date at 00:00:00
+const getToday = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+};
 
-    totalCaloriesBurned,
-  });
-
-  if (exerciseLog) {
-    const addExercise = await ExerciseLog.findByIdAndUpdate(exerciseLog._id, {
-      $push: { exercises: exercise },
-    });
-    return res
-      .status(201)
-      .json({ message: "Exercise log created successfully" });
-  } else {
-    return res.status(400).json({ message: "Failed to create exercise log" });
-  }
-});
-
-const getExerciseLogStatus = asyncHandler(async (req, res) => {
+// Create or update today's exercise log for user
+const upsertExerciseLog = asyncHandler(async (req, res) => {
   const userId = req.user._id;
-  const currentDate = new Date();
-  const startOfDay = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    currentDate.getDate(),
-    0,
-    0,
-    0,
-    0
-  );
-  const endOfDay = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    currentDate.getDate(),
-    23,
-    59,
-    59,
-    999
-  );
+  const today = getToday();
+  const { exerciseId, duration } = req.body;
 
-  const existingExerciseLog = await ExerciseLog.findOne({
-    userId,
-    date: {
-      $gte: startOfDay,
-      $lte: endOfDay,
-    },
-  });
-
-  if (existingExerciseLog) {
-    return res.status(200).json({ exerciseEntered: true });
+  if (!exerciseId || !duration) {
+    return res.status(400).json({
+      message: "exerciseId and duration are required",
+    });
   }
 
-  return res.status(400).json({ exerciseEntered: false });
-});
+  // Fetch exercise details
+  const exercise = await Exercise.findById(exerciseId);
+  if (!exercise) {
+    return res.status(404).json({ message: "Exercise not found" });
+  }
 
-const addExerciseToLog = asyncHandler(async (req, res) => {
-  const { exerciseLogId, exercise } = req.body;
-  const exerciseLog = await ExerciseLog.findById(exerciseLogId);
+  // Calculate calories burned based on duration
+  // caloriesBurned is for exercise.duration (default 5 min), so scale accordingly
+  const caloriesBurned = Math.round(
+    (exercise.caloriesBurned / exercise.duration) * duration
+  );
+
+  // Find today's exercise log
+  let exerciseLog = await ExerciseLog.findOne({ userId, date: today });
 
   if (!exerciseLog) {
-    return res.status(404).json({ message: "Exercise log not found" });
+    // Create new exercise log
+    exerciseLog = await ExerciseLog.create({
+      userId,
+      date: today,
+      exercises: [
+        {
+          exerciseId,
+          duration,
+          caloriesBurned,
+        },
+      ],
+      totalCaloriesBurned: caloriesBurned,
+    });
+  } else {
+    // Check if exercise already exists for today (optional: update or add new)
+    // Here, we just add a new exercise entry
+    exerciseLog.exercises.push({
+      exerciseId,
+      duration,
+      caloriesBurned,
+    });
+
+    // Recalculate total calories burned
+    exerciseLog.totalCaloriesBurned = exerciseLog.exercises.reduce(
+      (sum, ex) => sum + ex.caloriesBurned,
+      0
+    );
+
+    await exerciseLog.save();
   }
 
-  exerciseLog.exercises.push(exercise);
-  await exerciseLog.save();
+  await exerciseLog.populate("exercises.exerciseId");
 
   return res
-    .status(200)
-    .json({ message: "Exercise added to log successfully" });
+    .status(201)
+    .json({ data: exerciseLog, message: "Exercise log upserted successfully" });
 });
 
-export { createExerciseLog, getExerciseLogStatus, addExerciseToLog };
+const getExerciseLogByDate = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const today = getToday();
+
+  const exerciseLog = await ExerciseLog.findOne({
+    userId,
+    date: today,
+  }).populate("exercises.exerciseId");
+
+  if (!exerciseLog) {
+    return res.status(404).json({
+      message: "No exercise log found for today",
+    });
+  }
+
+  return res.status(200).json({
+    data: exerciseLog,
+    message: "Today's exercise log retrieved successfully",
+  });
+});
+
+const removeExerciseFromLog = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const today = getToday();
+  const { id } = req.params; // id is exerciseId
+
+  if (!id) {
+    return res
+      .status(400)
+      .json({ message: "exerciseId is required in params" });
+  }
+
+  // Find today's exercise log
+  let exerciseLog = await ExerciseLog.findOne({ userId, date: today });
+
+  if (!exerciseLog) {
+    return res.status(404).json({ message: "No exercise log found for today" });
+  }
+
+  // Remove the exercise from exercises array
+  const initialExercisesLength = exerciseLog.exercises.length;
+  exerciseLog.exercises = exerciseLog.exercises.filter(
+    (ex) => ex.exerciseId.toString() !== id
+  );
+
+  if (exerciseLog.exercises.length === initialExercisesLength) {
+    return res
+      .status(404)
+      .json({ message: "Exercise not found in today's exercise log" });
+  }
+
+  // Recalculate total calories burned
+  exerciseLog.totalCaloriesBurned = exerciseLog.exercises.reduce(
+    (sum, ex) => sum + ex.caloriesBurned,
+    0
+  );
+
+  await exerciseLog.save();
+  await exerciseLog.populate("exercises.exerciseId");
+
+  return res.status(200).json({
+    data: exerciseLog,
+    message: "Exercise removed and exercise log updated successfully",
+  });
+});
+
+export { upsertExerciseLog, getExerciseLogByDate, removeExerciseFromLog };
